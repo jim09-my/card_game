@@ -5,6 +5,7 @@ import pygame
 import sys
 from ui import GameUI
 from modes.simple_mode import SimpleGame
+from modes.dynamic_maze import DynamicMazeGame
 
 class MemoryMatchGame:
     """记忆迷宫游戏主控制器"""
@@ -155,11 +156,11 @@ class MemoryMatchGame:
     def start_hard_mode(self):
         """开始困难模式游戏"""
         try:
-            # 暂时使用简单模式代替困难模式
-            self.current_game = SimpleGame(4, 4)
+            # 使用动态迷宫困难模式（图结构约束翻牌）
+            self.current_game = DynamicMazeGame(4, 4)
             self.game_state = "game"
             self.waiting_to_hide = False
-            print("Hard mode started! (Using simple mode for now)")
+            print("Hard mode started! (Dynamic Maze)")
         except Exception as e:
             print(f"Start hard mode failed: {e}")
     
