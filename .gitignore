@@ -37,3 +37,6 @@ temp/
 dist/
 build/
 *.whl
+
+# 如果您使用 PyCharm，也可以忽略它的配置文件夹
+.idea/
