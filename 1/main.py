@@ -63,13 +63,17 @@ class MemoryMatchGame:
     def handle_keyboard(self, key):
         """处理键盘事件"""
         if key == pygame.K_ESCAPE:
-            if self.game_state in ["game", "victory"]:
+            if self.game_state in ["game", "victory", "defeat"]:
                 self.return_to_menu()
             else:
                 self.running = False
         
         elif key == pygame.K_r and self.game_state == "game":
             self.restart_game()
+        elif key == pygame.K_d and self.game_state == "game":
+            self.use_delay_item()
+        elif key == pygame.K_b and self.game_state == "game":
+            self.use_block_item()
 
     def handle_mouse_click(self, mouse_pos):
         """处理鼠标点击事件"""
@@ -78,6 +82,8 @@ class MemoryMatchGame:
         elif self.game_state == "game":
             self.handle_game_click(mouse_pos)
         elif self.game_state == "victory":
+            self.handle_victory_click(mouse_pos)
+        elif self.game_state == "defeat":
             self.handle_victory_click(mouse_pos)
     
     def handle_menu_click(self, mouse_pos):
@@ -95,7 +101,19 @@ class MemoryMatchGame:
         """处理游戏中的点击"""
         if self.waiting_to_hide:
             return  # 正在处理翻牌，忽略点击
-        
+        action = self.ui.get_game_action(mouse_pos, self.current_game)
+        if action == "delay":
+            self.use_delay_item()
+            return
+        elif action == "block":
+            self.use_block_item()
+            return
+        elif action == "restart":
+            self.restart_game()
+            return
+        elif action == "menu":
+            self.return_to_menu()
+            return
         card_pos = self.ui.get_card_position(mouse_pos, self.current_game)
         if card_pos:
             self.flip_card(*card_pos)
@@ -138,10 +156,16 @@ class MemoryMatchGame:
     
     def update_game_state(self):
         """更新游戏状态（如计时器等）"""
-        if self.waiting_to_hide and pygame.time.get_ticks() - self.flip_timer > 1000:
+        reveal_ms = 1000
+        if self.current_game and hasattr(self.current_game, 'get_reveal_duration_ms'):
+            reveal_ms = self.current_game.get_reveal_duration_ms()
+        if self.waiting_to_hide and pygame.time.get_ticks() - self.flip_timer > reveal_ms:
             if self.current_game:
                 self.current_game.hide_all_flipped()
             self.waiting_to_hide = False
+        if self.current_game and hasattr(self.current_game, 'is_time_over') and self.current_game.is_time_over():
+            self.game_state = "defeat"
+            print("Time over! You lost.")
     
     def start_simple_mode(self):
         """开始简单模式游戏"""
@@ -157,7 +181,7 @@ class MemoryMatchGame:
         """开始困难模式游戏"""
         try:
             # 使用动态迷宫困难模式（图结构约束翻牌）
-            self.current_game = DynamicMazeGame(4, 4)
+            self.current_game = DynamicMazeGame(7, 7)
             self.game_state = "game"
             self.waiting_to_hide = False
             print("Hard mode started! (Dynamic Maze)")
@@ -167,7 +191,18 @@ class MemoryMatchGame:
     def restart_game(self):
         """重新开始游戏"""
         if self.current_game:
-            self.start_simple_mode()
+            if isinstance(self.current_game, DynamicMazeGame):
+                self.start_hard_mode()
+            else:
+                self.start_simple_mode()
+
+    def use_delay_item(self):
+        if self.current_game and hasattr(self.current_game, 'use_item_delay'):
+            self.current_game.use_item_delay(5)
+
+    def use_block_item(self):
+        if self.current_game and hasattr(self.current_game, 'use_item_block_shuffle'):
+            self.current_game.use_item_block_shuffle(5)
     
     def return_to_menu(self):
         """返回主菜单"""

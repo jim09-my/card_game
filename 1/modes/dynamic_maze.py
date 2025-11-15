@@ -1,27 +1,18 @@
 from typing import List, Tuple, Dict, Optional
 from core.card import Card
-from core.utils import fisher_yates_shuffle, is_valid_position
+from core.utils import fisher_yates_shuffle, is_valid_position, shuffle_subset_inplace
+import time
 
 
 class DynamicMazeGame:
-    """
-    困难模式：使用图（邻接表）约束翻牌移动。
-    - 节点：每个节点对应一张卡片（Card）
-    - 边：允许从某节点移动到其邻居节点（四方向邻接）
-    - 规则：第二次翻牌必须是第一次翻开的邻居节点
-    - 与 SimpleGame 对齐的接口：flip_card、hide_all_flipped、is_completed、get_grid_state、get_card
-    额外接口：bfs_shortest_path、get_graph_state、get_hint_info
-    """
+
 
     def __init__(self, rows: int, cols: int, patterns: List[str] = None):
-        if (rows * cols) % 2 != 0:
-            raise ValueError("网格总数必须为偶数，以确保成对卡片。")
 
         self.rows = rows
         self.cols = cols
         total = rows * cols
 
-        # 生成成对的图案集合
         if patterns is None:
             patterns = [chr(ord('A') + i) for i in range(total // 2)]
         needed = total // 2
@@ -32,18 +23,32 @@ class DynamicMazeGame:
         paired_ids: List[str] = []
         for i in range(needed):
             paired_ids.extend([patterns[i], patterns[i]])
+        self.single_id: Optional[str] = None
+        if total % 2 == 1:
+            self.single_id = "__SINGLE__"
+            paired_ids.append(self.single_id)
 
-        # 洗牌后按节点顺序分配
         shuffled = fisher_yates_shuffle(paired_ids)
         self.nodes: List[Card] = [Card(card_id) for card_id in shuffled]
 
-        # 使用网格四向邻接生成连通图（邻接表）
         self.graph: Dict[int, List[int]] = self._build_grid_adjacency()
 
-        # 选择状态与得分
         self._first_selected: Optional[Tuple[int, int]] = None
         self._second_selected: Optional[Tuple[int, int]] = None
         self.score: int = 0
+        self.fail_count: int = 0
+        self.shuffle_threshold: int = 7
+        self.pending_shuffle: bool = False
+        self.shuffle_block_until: float = 0.0
+        self.time_limit_ms: int = 180000
+        self.started_at: float = time.time()
+        self.game_over: bool = False
+        self.reveal_duration_ms: int = 1000
+        self.last_shuffle_at: float = 0.0
+        self.delay_item_count: int = 1
+        self.block_item_count: int = 1
+        self.matched_pairs: int = 0
+        self.shuffle_counting_started: bool = False
 
     def _index(self, row: int, col: int) -> int:
         return row * self.cols + col
@@ -114,6 +119,9 @@ class DynamicMazeGame:
         """
         if not is_valid_position(row, col, self.rows, self.cols):
             raise IndexError("坐标超出网格范围。")
+        if self.is_time_over():
+            self.game_over = True
+            return False
 
         card = self.get_card(row, col)
         if card.is_matched or card.is_flipped:
@@ -122,13 +130,6 @@ class DynamicMazeGame:
         if self._first_selected is None:
             card.flip()
             self._first_selected = (row, col)
-            return False
-
-        # 第二次翻牌必须是第一次的邻居
-        first_idx = self._index(*self._first_selected)
-        cur_idx = self._index(row, col)
-        if cur_idx not in self.graph.get(first_idx, []):
-            # 非邻居，不允许翻牌
             return False
 
         card.flip()
@@ -148,6 +149,19 @@ class DynamicMazeGame:
             pair_score = card1.score_weight + card2.score_weight
             self.score += pair_score
             matched = True
+            self.fail_count = 0
+            self.matched_pairs += 1
+            if not self.shuffle_counting_started:
+                self.shuffle_counting_started = True
+            if self.matched_pairs % 9 == 0:
+                self.delay_item_count += 1
+                self.block_item_count += 1
+        else:
+            if self.shuffle_counting_started:
+                self.fail_count += 1
+                if self.fail_count >= self.shuffle_threshold and time.time() >= self.shuffle_block_until:
+                    self.pending_shuffle = True
+                    self.fail_count = 0
 
         # 重置选中记录（与 SimpleGame 对齐；失败由外部定时调用 hide_all_flipped 处理）
         self._first_selected = None
@@ -158,9 +172,14 @@ class DynamicMazeGame:
         for card in self.nodes:
             if card.is_flipped and not card.is_matched:
                 card.hide()
+        if self.pending_shuffle and time.time() >= self.shuffle_block_until:
+            self._shuffle_unmatched()
+            self.pending_shuffle = False
 
     def is_completed(self) -> bool:
         for card in self.nodes:
+            if self.single_id is not None and card.id == self.single_id:
+                continue
             if not card.is_matched:
                 return False
         return True
@@ -219,3 +238,57 @@ class DynamicMazeGame:
         neighs = self.graph.get(first_idx, [])
         positions = [self._rc_from_index(idx) for idx in neighs]
         return self._first_selected, positions
+
+    def _shuffle_unmatched(self) -> None:
+        indices: List[int] = []
+        for idx, card in enumerate(self.nodes):
+            if not card.is_matched:
+                indices.append(idx)
+        if indices:
+            shuffle_subset_inplace(self.nodes, indices)
+            self.last_shuffle_at = time.time()
+
+    def use_item_delay(self, seconds: int) -> None:
+        if self.delay_item_count > 0:
+            self.delay_item_count -= 1
+            self.time_limit_ms += max(0, int(seconds * 1000))
+
+    def use_item_block_shuffle(self, duration_seconds: int) -> None:
+        if self.block_item_count > 0:
+            self.block_item_count -= 1
+            self.shuffle_block_until = time.time() + max(0, duration_seconds)
+
+    def is_time_over(self) -> bool:
+        return self.get_remaining_time_ms() <= 0
+
+    def get_remaining_time_ms(self) -> int:
+        elapsed = int((time.time() - self.started_at) * 1000)
+        remaining = self.time_limit_ms - elapsed
+        return remaining if remaining > 0 else 0
+
+    def get_reveal_duration_ms(self) -> int:
+        return self.reveal_duration_ms
+
+    def get_shuffle_status(self) -> Dict[str, int | bool]:
+        remaining = self.shuffle_threshold - self.fail_count
+        recently = (time.time() - self.last_shuffle_at) < 2.0
+        if remaining < 0:
+            remaining = 0
+        return {
+            "threshold": self.shuffle_threshold,
+            "fail_count": self.fail_count,
+            "remaining": remaining,
+            "recently_shuffled": recently,
+            "pending_shuffle": self.pending_shuffle,
+            "counting_started": self.shuffle_counting_started,
+        }
+
+    def get_block_remaining_seconds(self) -> int:
+        left = int(self.shuffle_block_until - time.time())
+        return left if left > 0 else 0
+
+    def get_item_counts(self) -> Dict[str, int]:
+        return {
+            "delay": self.delay_item_count,
+            "block": self.block_item_count,
+        }
