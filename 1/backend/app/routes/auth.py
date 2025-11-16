@@ -1,15 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from datetime import timedelta
-from ..main import get_db
-from ..schemas import UserCreate, UserResponse, UserLogin, Token
-from ..crud import get_user_by_email, get_user_by_username, create_user
-from ..auth import authenticate_user, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-
-router = APIRouter(
-    prefix="/auth",  # 路由前缀，最终接口为 /auth/register 和 /auth/login
-    tags=["auth"]    # 分组标签（Swagger文档用）
+from .. import crud, schemas
+from ..auth import (
+    get_current_user,
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_db,
+    authenticate_user
 )
+
+# 导入Schema模型
+UserResponse = schemas.UserResponse
+UserCreate = schemas.UserCreate
+
+router = APIRouter(prefix="/auth", tags=["authentication"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -18,32 +26,54 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db_user = get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+            status_code=400,
+            detail="邮箱已注册"
         )
+    
     # 检查用户名是否已存在
-    if get_user_by_username(db, username=user.username):
+    db_user = crud.get_user_by_username(db, username=user.username)
+    if db_user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
+            status_code=400,
+            detail="用户名已存在"
         )
+    
     # 创建新用户
-    return create_user(db=db, user=user)
+    hashed_password = get_password_hash(user.password)
+    new_user = crud.create_user(db, user, hashed_password)
+    
+    return new_user
 
-@router.post("/login", response_model=Token)
-def login(user_login: UserLogin, db: Session = Depends(get_db)):
-    """用户登录接口（返回JWT令牌）"""
-    user = authenticate_user(db, user_login.email, user_login.password)
+@router.post("/login", response_model=schemas.Token)
+def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    """用户登录"""
+    # 验证用户凭据
+    user = authenticate_user(db, user_credentials.username, user_credentials.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="用户名或密码错误",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # 生成令牌
+    
+    # 创建访问令牌
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.id},  # 令牌中存储用户ID（"sub"为标准字段）
-        expires_delta=access_token_expires
+        data={"sub": user.username}, expires_delta=access_token_expires
     )
+    
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/me", response_model=schemas.UserResponse)
+def read_users_me(current_user = Depends(get_current_user)):
+    """获取当前用户信息"""
+    return current_user
+
+@router.post("/refresh")
+def refresh_token(current_user = Depends(get_current_user)):
+    """刷新访问令牌"""
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    new_token = create_access_token(
+        data={"sub": current_user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": new_token, "token_type": "bearer"}

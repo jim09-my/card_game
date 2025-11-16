@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>卡牌游戏系统测试界面</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e1e1e1;
+            border-radius: 10px;
+            background: #f9f9f9;
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .test-item.success {
+            border-left-color: #28a745;
+        }
+        .test-item.error {
+            border-left-color: #dc3545;
+        }
+        .test-item.loading {
+            border-left-color: #ffc107;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status.success {
+            background: #28a745;
+            color: white;
+        }
+        .status.error {
+            background: #dc3545;
+            color: white;
+        }
+        .status.loading {
+            background: #ffc107;
+            color: black;
+        }
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+        .card {
+            aspect-ratio: 1;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.3s, background-color 0.3s;
+        }
+        .card.covered {
+            background: #667eea;
+            color: white;
+        }
+        .card.revealed {
+            background: #f8f9fa;
+            color: #333;
+        }
+        .card.matched {
+            background: #28a745;
+            color: white;
+        }
+        .leaderboard {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .leaderboard-item:nth-child(even) {
+            background: #f8f9fa;
+        }
+        .leaderboard-header {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .item-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+        .item-icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 卡牌游戏系统测试界面</h1>
+            <p>测试后端API和游戏功能</p>
+        </div>
+        
+        <div class="content">
+            <!-- 后端状态 -->
+            <div class="section">
+                <h2>📡 后端API状态</h2>
+                <div id="backend-status">
+                    <div class="test-item loading">
+                        <span>正在检查后端状态...</span>
+                        <span class="status loading">检查中</span>
+                    </div>
+                </div>
+                <button class="button" onclick="checkBackendStatus()">🔄 重新检查后端状态</button>
+            </div>
+
+            <!-- 游戏物品 -->
+            <div class="section">
+                <h2>🎁 游戏物品</h2>
+                <div id="items-container">
+                    <div class="test-item loading">
+                        <span>正在加载物品...</span>
+                        <span class="status loading">加载中</span>
+                    </div>
+                </div>
+                <button class="button" onclick="loadItems()">🔄 重新加载物品</button>
+            </div>
+
+            <!-- 排行榜 -->
+            <div class="section">
+                <h2>🏆 排行榜</h2>
+                <div style="margin-bottom: 15px;">
+                    <button class="button" onclick="loadLeaderboard('score')">按分数排序</button>
+                    <button class="button" onclick="loadLeaderboard('steps')">按步数排序</button>
+                </div>
+                <div id="leaderboard-container">
+                    <div class="test-item loading">
+                        <span>正在加载排行榜...</span>
+                        <span class="status loading">加载中</span>
+                    </div>
+                </div>
+                <button class="button" onclick="loadLeaderboard('score')">🔄 重新加载排行榜</button>
+            </div>
+
+            <!-- 简化的卡牌游戏 -->
+            <div class="section">
+                <h2>🃏 卡牌游戏演示</h2>
+                <div class="game-board" id="game-board">
+                    <!-- 卡牌将通过JavaScript生成 -->
+                </div>
+                <button class="button" onclick="initGame()">🎮 开始新游戏</button>
+                <button class="button" onclick="submitGameResult()" style="margin-left: 10px;">💾 保存成绩</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let gameCards = [];
+        let firstCard = null;
+        let secondCard = null;
+        let matchedPairs = 0;
+        let moves = 0;
+
+        // 检查后端状态
+        async function checkBackendStatus() {
+            const container = document.getElementById('backend-status');
+            container.innerHTML = `
+                <div class="test-item loading">
+                    <span>正在检查后端状态...</span>
+                    <span class="status loading">检查中</span>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    const data = await response.json();
+                    container.innerHTML = `
+                        <div class="test-item success">
+                            <span>后端服务正常运行<br><small>状态: ${data.status}</small></span>
+                            <span class="status success">正常</span>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="test-item error">
+                        <span>后端服务连接失败<br><small>错误: ${error.message}</small></span>
+                        <span class="status error">错误</span>
+                    </div>
+                `;
+            }
+        }
+
+        // 加载物品
+        async function loadItems() {
+            const container = document.getElementById('items-container');
+            container.innerHTML = `
+                <div class="test-item loading">
+                    <span>正在加载物品...</span>
+                    <span class="status loading">加载中</span>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/game/items`);
+                if (response.ok) {
+                    const items = await response.json();
+                    if (items.length > 0) {
+                        const itemsHtml = items.map(item => `
+                            <div class="item-card">
+                                <div class="item-icon">🎴</div>
+                                <h4>${item.name || '未知物品'}</h4>
+                                <p>${item.description || '没有描述'}</p>
+                                <small>价格: ${item.price || 0}</small>
+                            </div>
+                        `).join('');
+                        container.innerHTML = itemsHtml;
+                    } else {
+                        container.innerHTML = `
+                            <div class="test-item">
+                                <span>暂无游戏物品</span>
+                                <span class="status">空</span>
+                            </div>
+                        `;
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <strong>加载物品失败:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 加载排行榜
+        async function loadLeaderboard(type = 'score') {
+            const container = document.getElementById('leaderboard-container');
+            container.innerHTML = `
+                <div class="test-item loading">
+                    <span>正在加载排行榜...</span>
+                    <span class="status loading">加载中</span>
+                </div>
+            `;
+
+            try {
+                const endpoint = type === 'steps' ? '/game/leaderboard/steps' : '/game/leaderboard';
+                const response = await fetch(`${API_BASE}${endpoint}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.length > 0) {
+                        const header = `
+                            <div class="leaderboard leaderboard-header">
+                                <div class="leaderboard-item">
+                                    <span>排名</span>
+                                    <span>${type === 'steps' ? '步数' : '分数'}</span>
+                                    <span>玩家</span>
+                                    <span>时间</span>
+                                </div>
+                            </div>
+                        `;
+                        const items = data.slice(0, 10).map((item, index) => `
+                            <div class="leaderboard-item">
+                                <span>#${index + 1}</span>
+                                <span>${type === 'steps' ? item.steps : item.score}</span>
+                                <span>${item.username || '匿名'}</span>
+                                <span>${new Date(item.created_at).toLocaleDateString()}</span>
+                            </div>
+                        `).join('');
+                        container.innerHTML = header + `<div class="leaderboard">${items}</div>`;
+                    } else {
+                        container.innerHTML = `
+                            <div class="test-item">
+                                <span>暂无排行榜数据</span>
+                                <span class="status">空</span>
+                            </div>
+                        `;
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <strong>加载排行榜失败:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // 初始化游戏
+        function initGame() {
+            gameCards = [
+                { symbol: '🎵', id: 1, revealed: false, matched: false },
+                { symbol: '🎵', id: 2, revealed: false, matched: false },
+                { symbol: '🎮', id: 3, revealed: false, matched: false },
+                { symbol: '🎮', id: 4, revealed: false, matched: false },
+                { symbol: '🎲', id: 5, revealed: false, matched: false },
+                { symbol: '🎲', id: 6, revealed: false, matched: false },
+                { symbol: '🎯', id: 7, revealed: false, matched: false },
+                { symbol: '🎯', id: 8, revealed: false, matched: false },
+                { symbol: '🃏', id: 9, revealed: false, matched: false },
+                { symbol: '🃏', id: 10, revealed: false, matched: false }
+            ];
+            
+            // 打乱卡牌
+            for (let i = gameCards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameCards[i], gameCards[j]] = [gameCards[j], gameCards[i]];
+            }
+            
+            firstCard = null;
+            secondCard = null;
+            matchedPairs = 0;
+            moves = 0;
+            
+            renderGameBoard();
+        }
+
+        // 渲染游戏板
+        function renderGameBoard() {
+            const board = document.getElementById('game-board');
+            board.innerHTML = gameCards.map(card => `
+                <div class="card ${card.matched ? 'matched' : card.revealed ? 'revealed' : 'covered'}" 
+                     onclick="flipCard(${card.id})">
+                    ${card.revealed || card.matched ? card.symbol : '?'}
+                </div>
+            `).join('');
+        }
+
+        // 翻卡
+        function flipCard(cardId) {
+            const card = gameCards.find(c => c.id === cardId);
+            if (card.revealed || card.matched) return;
+
+            card.revealed = true;
+
+            if (!firstCard) {
+                firstCard = card;
+            } else if (!secondCard) {
+                secondCard = card;
+                moves++;
+
+                // 检查匹配
+                if (firstCard.symbol === secondCard.symbol) {
+                    firstCard.matched = true;
+                    secondCard.matched = true;
+                    matchedPairs++;
+
+                    // 重置选择
+                    setTimeout(() => {
+                        firstCard = null;
+                        secondCard = null;
+                        
+                        if (matchedPairs === 5) {
+                            alert(`🎉 游戏完成！用了 ${moves} 步`);
+                        }
+                    }, 1000);
+                } else {
+                    // 不匹配，隐藏卡片
+                    setTimeout(() => {
+                        firstCard.revealed = false;
+                        secondCard.revealed = false;
+                        firstCard = null;
+                        secondCard = null;
+                    }, 1000);
+                }
+            }
+
+            renderGameBoard();
+        }
+
+        // 提交游戏结果
+        async function submitGameResult() {
+            if (matchedPairs < 5) {
+                alert('请先完成游戏！');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/game/submit_result`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        score: (5 - moves) * 100, // 基于步数计算分数
+                        steps: moves,
+                        username: '测试玩家'
+                    })
+                });
+
+                if (response.ok) {
+                    alert('🎉 成绩保存成功！');
+                    loadLeaderboard(); // 重新加载排行榜
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                alert(`❌ 保存失败: ${error.message}`);
+            }
+        }
+
+        // 初始化页面
+        window.onload = function() {
+            checkBackendStatus();
+            loadItems();
+            loadLeaderboard();
+            initGame();
+        };
+    </script>
+</body>
+</html>

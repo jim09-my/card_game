@@ -11,58 +11,136 @@ class GameUI:
         self.screen = screen
         self.width, self.height = screen.get_size()
         
-        # 颜色配置
+        # 初始化字体
+        pygame.font.init()
+        self.title_font = pygame.font.Font(None, 72)
+        self.menu_font = pygame.font.Font(None, 36)
+        self.card_font = pygame.font.Font(None, 24)
+        self.small_font = pygame.font.Font(None, 20)
+        
+        # 定义颜色方案
         self.colors = {
-            'background': (240, 240, 245),
-            'card_back': (70, 130, 180),
+            'background': (135, 206, 235),
             'card_front': (255, 255, 255),
+            'card_back': (70, 130, 180),
             'matched': (144, 238, 144),
-            'text': (50, 50, 50),
-            'button': (100, 150, 200),
-            'button_hover': (120, 170, 220),
-            'title': (30, 80, 150),
-            'victory': (255, 215, 0)
+            'victory': (50, 205, 50),
+            'button': (70, 130, 180),
+            'button_hover': (100, 160, 210),
+            'text': (255, 255, 255),
+            'hud_bg': (255, 255, 255, 200),
+            'leaderboard_bg': (240, 248, 255),
+            'leaderboard_border': (100, 149, 237)
         }
         
-        # 字体初始化
-        self.title_font = pygame.font.SysFont('arial', 48, bold=True)
-        self.menu_font = pygame.font.SysFont('arial', 36)
-        self.card_font = pygame.font.SysFont('arial', 32, bold=True)
-        self.info_font = pygame.font.SysFont('arial', 24)
-        self.small_font = pygame.font.SysFont('arial', 18)
+        # 初始化按钮布局
+        self.init_buttons()
         
-        # 界面元素定义
-        self.menu_buttons = {
-            "start_game": pygame.Rect(400, 250, 200, 50),    # Simple Game
-            "hard_game": pygame.Rect(400, 330, 200, 50),    # Hard Game
-            "exit": pygame.Rect(400, 410, 200, 50)          # Exit
-        }
+    def init_buttons(self):
+        """初始化所有按钮的位置"""
+        # 主菜单按钮
+        self.menu_buttons = {}
+        button_width, button_height = 250, 60
+        button_spacing = 30
+        start_y = 300
         
-        self.victory_buttons = {
-            "restart": pygame.Rect(300, 400, 180, 50),     # Play Again
-            "menu": pygame.Rect(520, 400, 180, 50)         # Main Menu
-        }
-        self.game_buttons = {
-            "delay": pygame.Rect(self.width - 220, 60, 200, 40),
-            "block": pygame.Rect(self.width - 220, 110, 200, 40),
-            "restart": pygame.Rect(self.width - 220, 160, 200, 40),
-            "menu": pygame.Rect(self.width - 220, 210, 200, 40),
-        }
+        buttons = ["开始简单模式", "开始困难模式", "排行榜", "退出游戏"]
+        for i, text in enumerate(buttons):
+            x = (self.width - button_width) // 2
+            y = start_y + i * (button_height + button_spacing)
+            rect = pygame.Rect(x, y, button_width, button_height)
+            self.menu_buttons[text] = rect
+        
+        # 游戏按钮
+        self.game_buttons = {}
+        button_width = 120
+        button_height = 40
+        button_spacing = 10
+        start_x = 40
+        start_y = 80
+        
+        game_buttons = ["delay", "block", "restart", "menu"]
+        for i, key in enumerate(game_buttons):
+            x = start_x + i * (button_width + button_spacing)
+            y = start_y
+            rect = pygame.Rect(x, y, button_width, button_height)
+            self.game_buttons[key] = rect
+        
+        # 胜利界面按钮
+        self.victory_buttons = {}
+        button_width, button_height = 200, 50
+        start_x = (self.width - 2 * button_width - 50) // 2
+        start_y = 450
+        
+        buttons = ["重新开始", "主菜单"]
+        for i, text in enumerate(buttons):
+            x = start_x + i * (button_width + 50)
+            y = start_y
+            rect = pygame.Rect(x, y, button_width, button_height)
+            self.victory_buttons[text] = rect
+        
+        # 排行榜按钮
+        self.leaderboard_buttons = {}
+        leaderboard_button_width, leaderboard_button_height = 150, 45
+        start_x = (self.width - leaderboard_button_width) // 2
+        start_y = 600
+        
+        leaderboard_buttons = ["返回主菜单", "刷新排行榜"]
+        for i, text in enumerate(leaderboard_buttons):
+            x = start_x + i * (leaderboard_button_width + 20)
+            y = start_y
+            rect = pygame.Rect(x, y, leaderboard_button_width, leaderboard_button_height)
+            self.leaderboard_buttons[text] = rect
     
     def render(self, game_state: str, current_game, waiting_to_hide: bool):
-        """主渲染函数"""
+        """根据游戏状态渲染界面"""
         self.screen.fill(self.colors['background'])
         
         if game_state == "menu":
-            self.render_main_menu()
+            self.render_menu()
         elif game_state == "game":
             self.render_game_interface(current_game, waiting_to_hide)
         elif game_state == "victory":
+            self.render_game_interface(current_game, waiting_to_hide)
             self.render_victory_interface(current_game)
         elif game_state == "defeat":
+            self.render_game_interface(current_game, waiting_to_hide)
             self.render_defeat_interface(current_game)
+        elif game_state == "leaderboard":
+            self.render_leaderboard_interface(self.leaderboard_data)
         
         pygame.display.flip()
+        self.render_menu()
+    
+    def render_menu(self):
+        """渲染主菜单界面"""
+        # 绘制标题
+        title_text = self.title_font.render("🃏 记忆迷宫 🃏", True, (50, 50, 150))
+        title_rect = title_text.get_rect(center=(self.width // 2, 150))
+        self.screen.blit(title_text, title_rect)
+        
+        # 绘制副标题
+        subtitle_text = self.menu_font.render("Memory Maze Game", True, (100, 100, 150))
+        subtitle_rect = subtitle_text.get_rect(center=(self.width // 2, 200))
+        self.screen.blit(subtitle_text, subtitle_rect)
+        
+        # 绘制按钮
+        mouse_pos = pygame.mouse.get_pos()
+        for button_id, button_rect in self.menu_buttons.items():
+            # 按钮颜色
+            if button_rect.collidepoint(mouse_pos):
+                bg_color = self.colors['button_hover']
+            else:
+                bg_color = self.colors['button']
+            
+            # 绘制按钮
+            pygame.draw.rect(self.screen, bg_color, button_rect, border_radius=10)
+            pygame.draw.rect(self.screen, (50, 50, 50), button_rect, 2, border_radius=10)
+            
+            # 绘制按钮文字
+            text_surface = self.menu_font.render(button_id, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=button_rect.center)
+            self.screen.blit(text_surface, text_rect)
     
     def render_main_menu(self):
         """渲染主菜单"""
@@ -274,6 +352,98 @@ class GameUI:
             text_rect = text_surface.get_rect(center=button_rect.center)
             self.screen.blit(text_surface, text_rect)
     
+    def render_leaderboard_interface(self, leaderboard_data):
+        """渲染排行榜界面"""
+        # 绘制标题
+        title_text = self.title_font.render("🏆 排行榜 🏆", True, self.colors['leaderboard_border'])
+        title_rect = title_text.get_rect(center=(self.width // 2, 80))
+        self.screen.blit(title_text, title_rect)
+        
+        # 绘制排行榜背景
+        leaderboard_rect = pygame.Rect(150, 150, 700, 350)
+        pygame.draw.rect(self.screen, self.colors['leaderboard_bg'], leaderboard_rect, border_radius=15)
+        pygame.draw.rect(self.screen, self.colors['leaderboard_border'], leaderboard_rect, 3, border_radius=15)
+        
+        # 绘制排行榜头部
+        header_font = self.menu_font
+        headers = ["排名", "玩家", "时间", "步数", "模式"]
+        header_widths = [60, 150, 150, 100, 120]
+        
+        header_start_x = 180
+        header_y = 180
+        
+        for i, header in enumerate(headers):
+            header_x = header_start_x + sum(header_widths[:i])
+            header_surface = header_font.render(header, True, (50, 50, 150))
+            self.screen.blit(header_surface, (header_x, header_y))
+        
+        # 绘制排行榜数据
+        data_start_y = 220
+        row_height = 30
+        
+        if hasattr(leaderboard_data, 'leaderboard_data') and leaderboard_data.leaderboard_data:
+            leaderboard = leaderboard_data.leaderboard_data.get('leaderboard', [])
+        else:
+            leaderboard = []
+        
+        for i, entry in enumerate(leaderboard[:8]):  # 最多显示8条记录
+            row_y = data_start_y + i * row_height
+            rank_text = str(i + 1)
+            username = entry.get('username', 'Unknown')
+            time_str = f"{entry.get('time_seconds', 0)}s"
+            steps = str(entry.get('steps', 0))
+            game_mode = entry.get('game_mode', 'simple')
+            
+            rank_surface = self.small_font.render(rank_text, True, (0, 0, 0))
+            username_surface = self.small_font.render(username, True, (0, 0, 0))
+            time_surface = self.small_font.render(time_str, True, (0, 0, 0))
+            steps_surface = self.small_font.render(steps, True, (0, 0, 0))
+            mode_surface = self.small_font.render(game_mode, True, (0, 0, 0))
+            
+            # 绘制排名（使用颜色区分前三名）
+            if i == 0:
+                rank_color = (255, 215, 0)  # 金色
+            elif i == 1:
+                rank_color = (192, 192, 192)  # 银色
+            elif i == 2:
+                rank_color = (205, 127, 50)  # 铜色
+            else:
+                rank_color = (0, 0, 0)  # 黑色
+            
+            rank_surface = self.small_font.render(rank_text, True, rank_color)
+            
+            # 绘制数据
+            row_start_x = 180
+            self.screen.blit(rank_surface, (row_start_x, row_y))
+            self.screen.blit(username_surface, (row_start_x + header_widths[0], row_y))
+            self.screen.blit(time_surface, (row_start_x + header_widths[0] + header_widths[1], row_y))
+            self.screen.blit(steps_surface, (row_start_x + header_widths[0] + header_widths[1] + header_widths[2], row_y))
+            self.screen.blit(mode_surface, (row_start_x + header_widths[0] + header_widths[1] + header_widths[2] + header_widths[3], row_y))
+        
+        # 如果没有数据，显示提示信息
+        if not leaderboard:
+            no_data_text = self.menu_font.render("暂无排行榜数据", True, (100, 100, 100))
+            no_data_rect = no_data_text.get_rect(center=(self.width // 2, 320))
+            self.screen.blit(no_data_text, no_data_rect)
+        
+        # 绘制按钮
+        mouse_pos = pygame.mouse.get_pos()
+        for button_id, button_rect in self.leaderboard_buttons.items():
+            # 按钮颜色
+            if button_rect.collidepoint(mouse_pos):
+                bg_color = self.colors['button_hover']
+            else:
+                bg_color = self.colors['button']
+            
+            # 绘制按钮
+            pygame.draw.rect(self.screen, bg_color, button_rect, border_radius=10)
+            pygame.draw.rect(self.screen, (50, 50, 50), button_rect, 2, border_radius=10)
+            
+            # 绘制按钮文字
+            text_surface = self.menu_font.render(button_id, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(center=button_rect.center)
+            self.screen.blit(text_surface, text_rect)
+    
     def calculate_progress(self, game):
         """计算游戏进度"""
         total = game.rows * game.cols
@@ -291,7 +461,15 @@ class GameUI:
         """获取主菜单点击动作"""
         for button_id, rect in self.menu_buttons.items():
             if rect.collidepoint(mouse_pos):
-                return button_id
+                # 根据按钮文本映射到动作
+                if button_id == "开始简单模式":
+                    return "start_game"
+                elif button_id == "开始困难模式":
+                    return "hard_game"
+                elif button_id == "排行榜":
+                    return "leaderboard"
+                elif button_id == "退出游戏":
+                    return "exit"
         return None
     
     def get_victory_action(self, mouse_pos):
@@ -369,3 +547,13 @@ class GameUI:
             text_surface = self.menu_font.render(button_texts[i], True, (255, 255, 255))
             text_rect = text_surface.get_rect(center=button_rect.center)
             self.screen.blit(text_surface, text_rect)
+
+    def get_leaderboard_action(self, mouse_pos):
+        """获取排行榜界面的点击动作"""
+        for button_id, rect in self.leaderboard_buttons.items():
+            if rect.collidepoint(mouse_pos):
+                if button_id == "返回主菜单":
+                    return "menu"
+                elif button_id == "刷新排行榜":
+                    return "refresh"
+        return None

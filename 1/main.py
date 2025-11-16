@@ -3,6 +3,11 @@ main.py - 记忆迷宫游戏主程序
 """
 import pygame
 import sys
+import requests
+import json
+import subprocess
+import time
+import threading
 from ui import GameUI
 from modes.simple_mode import SimpleGame
 from modes.dynamic_maze import DynamicMazeGame
@@ -21,13 +26,62 @@ class MemoryMatchGame:
         
         # 游戏状态
         self.current_game = None
-        self.game_state = "menu"  # menu, game, victory
+        self.game_state = "menu"  # menu, game, victory, leaderboard
         self.running = True
         self.clock = pygame.time.Clock()
         
         # 游戏计时
         self.flip_timer = 0
         self.waiting_to_hide = False
+        
+        # 后端服务
+        self.backend_process = None
+        self.backend_url = "http://localhost:8000"
+        self.backend_ready = False
+        
+        # 排行榜数据
+        self.leaderboard_data = {"leaderboard": []}
+        
+        # 自动启动后端服务
+        self.start_backend_service()
+    
+    def start_backend_service(self):
+        """启动后端服务"""
+        def start_backend():
+            try:
+                # 启动后端服务 - 使用绝对路径
+                backend_dir = r"d:\COLLEGE3\sjjgks\card_game\1\backend"
+                self.backend_process = subprocess.Popen(
+                    ["python", "start_server.py"],
+                    cwd=backend_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
+                )
+                
+                # 等待后端服务启动
+                max_attempts = 30
+                for i in range(max_attempts):
+                    try:
+                        response = requests.get(f"{self.backend_url}/health", timeout=1)
+                        if response.status_code == 200:
+                            self.backend_ready = True
+                            print("后端服务启动成功！")
+                            break
+                    except:
+                        time.sleep(1)
+                        if i == max_attempts - 1:
+                            print("后端服务启动超时")
+                
+            except Exception as e:
+                print(f"启动后端服务失败: {e}")
+        
+        # 在后台线程启动后端服务
+        backend_thread = threading.Thread(target=start_backend)
+        backend_thread.daemon = True
+        backend_thread.start()
+        
+        # 定期检查后端状态
+        pygame.time.set_timer(pygame.USEREVENT + 1, 2000)  # 每2秒检查一次
     
     def run(self):
         """主游戏循环"""
@@ -53,6 +107,10 @@ class MemoryMatchGame:
             if event.type == pygame.QUIT:
                 self.running = False
             
+            elif event.type == pygame.USEREVENT + 1:  # 后端状态检查事件
+                if self.backend_process:
+                    self.check_backend_status()
+            
             elif event.type == pygame.KEYDOWN:
                 self.handle_keyboard(event.key)
             
@@ -63,7 +121,7 @@ class MemoryMatchGame:
     def handle_keyboard(self, key):
         """处理键盘事件"""
         if key == pygame.K_ESCAPE:
-            if self.game_state in ["game", "victory", "defeat"]:
+            if self.game_state in ["game", "victory", "defeat", "leaderboard"]:
                 self.return_to_menu()
             else:
                 self.running = False
@@ -85,6 +143,8 @@ class MemoryMatchGame:
             self.handle_victory_click(mouse_pos)
         elif self.game_state == "defeat":
             self.handle_victory_click(mouse_pos)
+        elif self.game_state == "leaderboard":
+            self.handle_leaderboard_click(mouse_pos)
     
     def handle_menu_click(self, mouse_pos):
         """处理菜单界面的点击"""
@@ -94,6 +154,8 @@ class MemoryMatchGame:
             self.start_simple_mode()
         elif action == "hard_game":
             self.start_hard_mode()
+        elif action == "leaderboard":
+            self.show_leaderboard()
         elif action == "exit":
             self.running = False
     
@@ -126,6 +188,72 @@ class MemoryMatchGame:
             self.restart_game()
         elif action == "menu":
             self.return_to_menu()
+    
+    def show_leaderboard(self):
+        """显示排行榜"""
+        self.game_state = "leaderboard"
+        # 加载排行榜数据
+        if self.backend_ready:
+            self.load_leaderboard()
+    
+    def load_leaderboard(self):
+        """从后端加载排行榜数据"""
+        try:
+            # 获取简单模式排行榜
+            response = requests.get(f"{self.backend_url}/game/leaderboard?game_mode=simple&limit=10")
+            if response.status_code == 200:
+                data = response.json()
+                self.leaderboard_data = data
+        except Exception as e:
+            print(f"加载排行榜失败: {e}")
+    
+    def check_backend_status(self):
+        """检查后端服务状态"""
+        if not self.backend_ready:
+            try:
+                response = requests.get(f"{self.backend_url}/health", timeout=1)
+                if response.status_code == 200:
+                    self.backend_ready = True
+                    print("后端服务已连接！")
+            except:
+                pass
+    
+    def upload_game_result(self, game_mode, time_seconds, steps, score):
+        """上传游戏结果到后端"""
+        if not self.backend_ready:
+            return
+        
+        try:
+            result_data = {
+                "game_mode": game_mode,
+                "time_seconds": time_seconds,
+                "steps": steps,
+                "score": score,
+                "username": "player"
+            }
+            
+            response = requests.post(
+                f"{self.backend_url}/game/upload_result",
+                json=result_data,
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                print("游戏结果上传成功！")
+        except Exception as e:
+            print(f"上传游戏结果失败: {e}")
+    
+    def handle_leaderboard_click(self, mouse_pos):
+        """处理排行榜界面的点击"""
+        # 获取排行榜界面的按钮点击
+        if hasattr(self.ui, 'get_leaderboard_action'):
+            action = self.ui.get_leaderboard_action(mouse_pos)
+            if action == "menu":
+                self.return_to_menu()
+            elif action == "refresh":
+                self.load_leaderboard()
+        elif self.game_state == "defeat":
+            self.handle_victory_click(mouse_pos)
     
     def flip_card(self, row, col):
         """翻牌操作"""

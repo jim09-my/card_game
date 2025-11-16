@@ -45,3 +45,6 @@ python-dotenv==1.0.0
 passlib[bcrypt]==1.7.4  # 密码加密
 python-jose[cryptography]==3.3.0  # JWT令牌生成/验证
 email-validator==2.1.0  # 邮箱格式验证（FastAPI依赖）
+
+# 游戏开发依赖
+pygame==2.5.2

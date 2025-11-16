@@ -37,7 +37,7 @@ class DynamicMazeGame:
         self._second_selected: Optional[Tuple[int, int]] = None
         self.score: int = 0
         self.fail_count: int = 0
-        self.shuffle_threshold: int = 7
+        self.shuffle_threshold: int = 10
         self.pending_shuffle: bool = False
         self.shuffle_block_until: float = 0.0
         self.time_limit_ms: int = 180000

@@ -50,6 +50,9 @@ class SimpleGame:
         self._first_selected: Tuple[int, int] = None
         self._second_selected: Tuple[int, int] = None
         self.score: int = 0
+        self.fail_count: int = 0
+        self.shuffle_threshold: int = 5
+        self.pending_shuffle: bool = False
 
     def get_card(self, row: int, col: int) -> Card:
         if not is_valid_position(row, col, self.rows, self.cols):
@@ -99,9 +102,12 @@ class SimpleGame:
             # 通过基础分值和权重累加分数
             pair_score = card1.score_weight + card2.score_weight
             self.score += pair_score
+            self.fail_count = 0  # 重置失败计数
         else:
-            # 暂时保持翻开，等待下一步调用 hide_all_flipped
-            pass
+            self.fail_count += 1
+            # 检查是否需要洗牌
+            if self.fail_count >= self.shuffle_threshold:
+                self.pending_shuffle = True
 
         # 重置选中记录，准备下一轮
         self._first_selected = None
@@ -118,6 +124,31 @@ class SimpleGame:
             for card in row:
                 if card.is_flipped and not card.is_matched:
                     card.hide()
+        
+        # 如果需要洗牌，执行洗牌操作
+        if self.pending_shuffle:
+            self._shuffle_unmatched()
+            self.pending_shuffle = False
+    
+    def _shuffle_unmatched(self) -> None:
+        """
+        洗牌未匹配的卡片
+        """
+        unmatched_cards = []
+        for row in self.grid:
+            for card in row:
+                if not card.is_matched:
+                    card.is_flipped = False  # 盖回卡片
+                    card.is_matched = False
+                    unmatched_cards.append(card)
+        
+        # 获取所有未匹配卡片的ID
+        card_ids = [card.id for card in unmatched_cards]
+        shuffled_ids = fisher_yates_shuffle(card_ids)
+        
+        # 重新分配ID到未匹配的卡片
+        for i, card in enumerate(unmatched_cards):
+            card.id = shuffled_ids[i]
 
     def is_completed(self) -> bool:
         """检查所有卡片是否均已配对完成。"""
