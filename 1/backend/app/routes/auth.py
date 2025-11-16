@@ -23,7 +23,7 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 def register(user: UserCreate, db: Session = Depends(get_db)):
     """用户注册接口"""
     # 检查邮箱是否已存在
-    db_user = get_user_by_email(db, email=user.email)
+    db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
             status_code=400,
