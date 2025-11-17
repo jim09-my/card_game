@@ -68,9 +68,8 @@ class GameUI:
         self.login_username = ""
         self.login_password = ""
         self.register_username = ""
-        self.register_email = ""
         self.register_password = ""
-        self.input_active = None  # 'login_username', 'login_password', 'register_username', 'register_email', 'register_password'
+        self.input_active = None  # 'login_username', 'login_password', 'register_username', 'register_password'
         self.input_text = ""
 
     def find_chinese_font(self):
@@ -150,19 +149,18 @@ class GameUI:
         }
 
     def init_register_inputs(self):
-        """初始化注册输入框和按钮"""
-        # 输入框（调整位置，添加邮箱输入框）
-        self.register_username_input = pygame.Rect((self.width - 300) // 2, 280, 300, 40)
-        self.register_email_input = pygame.Rect((self.width - 300) // 2, 340, 300, 40)
-        self.register_password_input = pygame.Rect((self.width - 300) // 2, 400, 300, 40)
+        """初始化注册输入框和按钮（简化版，无邮箱）"""
+        # 输入框（移除邮箱输入框）
+        self.register_username_input = pygame.Rect((self.width - 300) // 2, 300, 300, 40)
+        self.register_password_input = pygame.Rect((self.width - 300) // 2, 360, 300, 40)
         # 按钮 - 修复位置计算，使按钮更大更容易点击
         button_width, button_height = 120, 45
         button_spacing = 15
         total_buttons_width = button_width * 2 + button_spacing
         start_x = (self.width - total_buttons_width) // 2
         self.register_buttons = {
-            "register": pygame.Rect(start_x, 460, button_width, button_height),
-            "back": pygame.Rect(start_x + button_width + button_spacing, 460, button_width, button_height)
+            "register": pygame.Rect(start_x, 420, button_width, button_height),
+            "back": pygame.Rect(start_x + button_width + button_spacing, 420, button_width, button_height)
         }
 
     def reset_login_inputs(self):
@@ -173,9 +171,8 @@ class GameUI:
         self.input_active = None
 
     def reset_register_inputs(self):
-        """重置注册输入"""
+        """重置注册输入（简化版，无邮箱）"""
         self.register_username = ""
-        self.register_email = ""
         self.register_password = ""
         self.input_text = ""
         self.input_active = None
@@ -208,13 +205,17 @@ class GameUI:
 
     def get_shop_action(self, mouse_pos):
         """获取商城界面点击动作"""
-        buy_delay_button = pygame.Rect((self.width - 150) // 2, 300, 150, 40)
-        buy_block_button = pygame.Rect((self.width - 150) // 2, 360, 150, 40)
-        back_button = pygame.Rect((self.width - 150) // 2, 420, 150, 40)
+        buy_delay_button = pygame.Rect((self.width - 200) // 2, 220, 200, 60)
+        buy_block_button = pygame.Rect((self.width - 200) // 2, 300, 200, 60)
+        buy_reveal_button = pygame.Rect((self.width - 200) // 2, 380, 200, 60)
+        back_button = pygame.Rect((self.width - 150) // 2, 460, 150, 40)
+        
         if buy_delay_button.collidepoint(mouse_pos):
             return "buy_delay"
         elif buy_block_button.collidepoint(mouse_pos):
             return "buy_block"
+        elif buy_reveal_button.collidepoint(mouse_pos):
+            return "buy_reveal"
         elif back_button.collidepoint(mouse_pos):
             return "back"
         return None
@@ -227,17 +228,66 @@ class GameUI:
         return None
 
     def get_game_action(self, mouse_pos, current_game):
-        """获取游戏界面点击动作"""
-        if current_game and hasattr(current_game, 'get_game_action'):
-            return current_game.get_game_action(mouse_pos)
-        # 示例按钮位置（需要根据实际按钮布局调整）
-        delay_button = pygame.Rect(50, 50, 100, 40)
-        block_button = pygame.Rect(160, 50, 100, 40)
-        restart_button = pygame.Rect(270, 50, 100, 40)
-        menu_button = pygame.Rect(380, 50, 100, 40)
+        """获取游戏界面点击动作（按钮检测）"""
+        # 注意：这个方法只检测按钮，不检测卡牌
+        # 按钮位置需要与render_game_interface中的位置一致
+        # 由于按钮位置是动态计算的，我们需要重新计算
+        
+        # 计算按钮位置（与render_game_interface中的逻辑完全一致）
+        button_y = 500  # 默认位置
+        if current_game and hasattr(current_game, 'get_grid_state'):
+            grid_state = current_game.get_grid_state()
+            rows = len(grid_state)
+            cols = len(grid_state[0]) if rows > 0 else 0
+            
+            # 使用与render_game_interface相同的卡牌尺寸计算
+            if rows <= 4 and cols <= 4:
+                card_width, card_height = 100, 120
+                spacing = 15
+            else:
+                card_width, card_height = 60, 80
+                spacing = 8
+            
+            # 计算总宽度和起始位置，确保居中（与render_game_interface一致）
+            total_width = cols * (card_width + spacing) - spacing
+            total_height = rows * (card_height + spacing) - spacing
+            start_x = (self.width - total_width) // 2
+            start_y = 100  # HUD下方
+            
+            # 确保不会超出屏幕（与render_game_interface一致）
+            max_y = start_y + total_height
+            if max_y > self.height - 120:  # 留出按钮空间
+                # 如果超出，缩小卡牌尺寸
+                scale = (self.height - 120 - start_y) / total_height
+                card_width = int(card_width * scale)
+                card_height = int(card_height * scale)
+                spacing = int(spacing * scale)
+                total_width = cols * (card_width + spacing) - spacing
+                start_x = (self.width - total_width) // 2
+                total_height = rows * (card_height + spacing) - spacing
+            
+            # 计算按钮位置，确保在卡牌网格下方（与render_game_interface一致）
+            grid_bottom = start_y + rows * (card_height + spacing) - spacing
+            button_y = grid_bottom + 20
+            # 确保按钮不会超出屏幕
+            if button_y > self.height - 50:
+                button_y = self.height - 50
+        
+        # 按钮位置（与render_game_interface一致）
+        delay_button = pygame.Rect(50, button_y, 100, 40)
+        block_button = pygame.Rect(160, button_y, 100, 40)
+        restart_button = pygame.Rect(270, button_y, 100, 40)
+        menu_button = pygame.Rect(380, button_y, 100, 40)
+        
+        print(f"道具按钮检测 - 鼠标位置: {mouse_pos}")
+        print(f"延时按钮区域: {delay_button}, 阻挡按钮区域: {block_button}")
+        print(f"延时按钮碰撞: {delay_button.collidepoint(mouse_pos)}, 阻挡按钮碰撞: {block_button.collidepoint(mouse_pos)}")
+        
         if delay_button.collidepoint(mouse_pos):
+            print("检测到延时按钮点击")
             return "delay"
         elif block_button.collidepoint(mouse_pos):
+            print("检测到阻挡按钮点击")
             return "block"
         elif restart_button.collidepoint(mouse_pos):
             return "restart"
@@ -291,11 +341,8 @@ class GameUI:
         """获取注册密码"""
         return self.register_password
     
-    def get_register_email(self):
-        """获取注册邮箱"""
-        return self.register_email
 
-    def render(self, game_state: str, current_game, waiting_to_hide: bool, elapsed_time: int, step_count: int, points: int, user_logged_in: bool, username: str):
+    def render(self, game_state: str, current_game, waiting_to_hide: bool, elapsed_time: int, step_count: int, points: int, user_logged_in: bool, username: str, user_items=None):
         """根据游戏状态渲染界面"""
         self.screen.fill(self.colors['background'])
 
@@ -306,14 +353,16 @@ class GameUI:
         elif game_state == "register":
             self.render_register_interface()
         elif game_state == "shop":
-            self.render_shop_interface()
+            self.render_shop_interface(points, user_items)
         elif game_state == "history":
             self.render_history_interface([])
         elif game_state == "game":
             self.render_game_interface(current_game, waiting_to_hide, elapsed_time, step_count, points)
         elif game_state == "victory":
             self.render_game_interface(current_game, waiting_to_hide, elapsed_time, step_count, points)
-            self.render_victory_interface()
+            # 获取积分信息（从游戏对象或传入参数）
+            points_earned = getattr(current_game, 'points_earned', 0) if current_game else 0
+            self.render_victory_interface(points_earned, points)
         elif game_state == "defeat":
             self.render_game_interface(current_game, waiting_to_hide, elapsed_time, step_count, points)
             self.render_defeat_interface()
@@ -455,7 +504,7 @@ class GameUI:
         gap = 20  # 增加间距，让输入框向右移动
 
         # 用户名行
-        username_y = 280
+        username_y = 300
         username_label_surf = self.chinese_small_font.render("用户名:", True, self.colors['text'])
         label_w, label_h = self.input_font.size("用户名:")
         total_w = label_w + gap + input_w
@@ -484,36 +533,8 @@ class GameUI:
             text_rect = text_surface.get_rect(midleft=(self.register_username_input.x + 5, self.register_username_input.centery))
             self.screen.blit(text_surface, text_rect)
 
-        # 邮箱行
-        email_y = username_y + 60
-        email_label_surf = self.chinese_small_font.render("邮箱:", True, self.colors['text'])
-        label_w_email, label_h_email = self.input_font.size("邮箱:")
-        label_x_email = start_x
-        label_y_email = email_y + (input_h - label_h_email) // 2
-        self.screen.blit(email_label_surf, (label_x_email, label_y_email))
-        self.register_email_input = pygame.Rect(start_x + label_w + gap, email_y, input_w, input_h)
-        # 绘制输入框，如果激活则高亮边框
-        border_color = (100, 200, 255) if self.input_active == 'register_email' else self.colors['input_border']
-        pygame.draw.rect(self.screen, self.colors['input_bg'], self.register_email_input)
-        pygame.draw.rect(self.screen, border_color, self.register_email_input, 3 if self.input_active == 'register_email' else 2)
-        # 显示输入的文字
-        if self.register_email:
-            # 截断文字以适应输入框宽度
-            max_width = self.register_email_input.width - 10
-            display_text = self.register_email
-            text_width, _ = self.input_font.size(display_text)
-            if text_width > max_width:
-                # 如果文字太长，从末尾截断并显示省略号
-                while text_width > max_width - 20 and len(display_text) > 0:
-                    display_text = display_text[1:]
-                    text_width, _ = self.input_font.size("..." + display_text)
-                display_text = "..." + display_text
-            text_surface = self.input_font.render(display_text, True, (0, 0, 0))
-            text_rect = text_surface.get_rect(midleft=(self.register_email_input.x + 5, self.register_email_input.centery))
-            self.screen.blit(text_surface, text_rect)
-
-        # 密码行
-        password_y = email_y + 60
+        # 密码行（移除邮箱行）
+        password_y = username_y + 60
         password_label_surf = self.chinese_small_font.render("密码:", True, self.colors['text'])
         label_w2, label_h2 = self.input_font.size("密码:")
         label_x2 = start_x
@@ -554,41 +575,81 @@ class GameUI:
             text_rect = text_surface.get_rect(center=button_rect.center)
             self.screen.blit(text_surface, text_rect)
 
-    def render_shop_interface(self):
+    def render_shop_interface(self, points=0, user_items=None):
         """渲染商城界面"""
         self.screen.fill(self.colors['background'])
         
         # 绘制标题
         title_text = self.chinese_title_font.render("商城", True, (50, 50, 150))
-        title_rect = title_text.get_rect(center=(self.width // 2, 200))
+        title_rect = title_text.get_rect(center=(self.width // 2, 100))
         self.screen.blit(title_text, title_rect)
+        
+        # 显示用户当前积分
+        points_text = self.chinese_font.render(f"当前积分: {points}", True, (50, 150, 50))
+        points_rect = points_text.get_rect(center=(self.width // 2, 150))
+        self.screen.blit(points_text, points_rect)
+        
+        # 道具价格信息
+        item_costs = {
+            "delay": {"name": "延时道具", "cost": 10, "desc": "增加30秒游戏时间"},
+            "block": {"name": "阻挡道具", "cost": 15, "desc": "冻结对手5秒"},
+            "reveal": {"name": "翻牌道具", "cost": 20, "desc": "直接翻开一张卡片"}
+        }
+        
+        # 获取道具数量
+        if user_items is None:
+            user_items = {"delay": 0, "block": 0, "reveal": 0}
         
         # 按钮
         mouse_pos = pygame.mouse.get_pos()
-        buy_delay_button = pygame.Rect((self.width - 150) // 2, 300, 150, 40)
-        buy_block_button = pygame.Rect((self.width - 150) // 2, 360, 150, 40)
-        back_button = pygame.Rect((self.width - 150) // 2, 420, 150, 40)
+        buy_delay_button = pygame.Rect((self.width - 200) // 2, 220, 200, 60)
+        buy_block_button = pygame.Rect((self.width - 200) // 2, 300, 200, 60)
+        buy_reveal_button = pygame.Rect((self.width - 200) // 2, 380, 200, 60)
+        back_button = pygame.Rect((self.width - 150) // 2, 460, 150, 40)
         
+        # 延时道具按钮
         if buy_delay_button.collidepoint(mouse_pos):
             bg_color = self.colors['button_hover']
         else:
             bg_color = self.colors['button']
         pygame.draw.rect(self.screen, bg_color, buy_delay_button, border_radius=10)
         pygame.draw.rect(self.screen, (50, 50, 50), buy_delay_button, 2, border_radius=10)
-        delay_text = self.chinese_button_font.render("购买延时道具", True, self.colors['text'])
-        delay_rect = delay_text.get_rect(center=buy_delay_button.center)
+        delay_text = self.chinese_button_font.render(f"延时道具 ({item_costs['delay']['cost']}积分)", True, self.colors['text'])
+        delay_rect = delay_text.get_rect(center=(buy_delay_button.centerx, buy_delay_button.y + 15))
         self.screen.blit(delay_text, delay_rect)
+        delay_desc = self.menu_font.render(f"{item_costs['delay']['desc']} | 拥有: {user_items.get('delay', 0)}", True, (100, 100, 100))
+        delay_desc_rect = delay_desc.get_rect(center=(buy_delay_button.centerx, buy_delay_button.y + 40))
+        self.screen.blit(delay_desc, delay_desc_rect)
         
+        # 阻挡道具按钮
         if buy_block_button.collidepoint(mouse_pos):
             bg_color = self.colors['button_hover']
         else:
             bg_color = self.colors['button']
         pygame.draw.rect(self.screen, bg_color, buy_block_button, border_radius=10)
         pygame.draw.rect(self.screen, (50, 50, 50), buy_block_button, 2, border_radius=10)
-        block_text = self.chinese_button_font.render("购买阻挡道具", True, self.colors['text'])
-        block_rect = block_text.get_rect(center=buy_block_button.center)
+        block_text = self.chinese_button_font.render(f"阻挡道具 ({item_costs['block']['cost']}积分)", True, self.colors['text'])
+        block_rect = block_text.get_rect(center=(buy_block_button.centerx, buy_block_button.y + 15))
         self.screen.blit(block_text, block_rect)
+        block_desc = self.menu_font.render(f"{item_costs['block']['desc']} | 拥有: {user_items.get('block', 0)}", True, (100, 100, 100))
+        block_desc_rect = block_desc.get_rect(center=(buy_block_button.centerx, buy_block_button.y + 40))
+        self.screen.blit(block_desc, block_desc_rect)
         
+        # 翻牌道具按钮
+        if buy_reveal_button.collidepoint(mouse_pos):
+            bg_color = self.colors['button_hover']
+        else:
+            bg_color = self.colors['button']
+        pygame.draw.rect(self.screen, bg_color, buy_reveal_button, border_radius=10)
+        pygame.draw.rect(self.screen, (50, 50, 50), buy_reveal_button, 2, border_radius=10)
+        reveal_text = self.chinese_button_font.render(f"翻牌道具 ({item_costs['reveal']['cost']}积分)", True, self.colors['text'])
+        reveal_rect = reveal_text.get_rect(center=(buy_reveal_button.centerx, buy_reveal_button.y + 15))
+        self.screen.blit(reveal_text, reveal_rect)
+        reveal_desc = self.menu_font.render(f"{item_costs['reveal']['desc']} | 拥有: {user_items.get('reveal', 0)}", True, (100, 100, 100))
+        reveal_desc_rect = reveal_desc.get_rect(center=(buy_reveal_button.centerx, buy_reveal_button.y + 40))
+        self.screen.blit(reveal_desc, reveal_desc_rect)
+        
+        # 返回按钮
         if back_button.collidepoint(mouse_pos):
             bg_color = self.colors['button_hover']
         else:
@@ -629,7 +690,16 @@ class GameUI:
         self.screen.fill(self.colors['background'])
         # 绘制HUD（计时器、步数、积分）
         hud_y = 20
-        timer_text = self.menu_font.render(f"时间: {elapsed_time} 秒", True, self.colors['text'])
+        
+        # 检查是否是困难模式，如果是则显示剩余时间
+        if hasattr(current_game, 'get_remaining_time_ms'):
+            remaining_time_ms = current_game.get_remaining_time_ms()
+            remaining_time_sec = remaining_time_ms // 1000
+            timer_text = self.menu_font.render(f"剩余时间: {remaining_time_sec} 秒", True, self.colors['text'])
+        else:
+            # 简单模式显示已用时间
+            timer_text = self.menu_font.render(f"时间: {elapsed_time} 秒", True, self.colors['text'])
+        
         self.screen.blit(timer_text, (50, hud_y))
         steps_text = self.menu_font.render(f"步数: {step_count}", True, self.colors['text'])
         self.screen.blit(steps_text, (250, hud_y))
@@ -640,39 +710,84 @@ class GameUI:
             grid_state = current_game.get_grid_state()
             rows = len(grid_state)
             cols = len(grid_state[0]) if rows > 0 else 0
-            card_width, card_height = 60, 80
-            spacing = 10
-            start_x = (self.width - (cols * (card_width + spacing) - spacing)) // 2
+            
+            # 根据网格大小调整卡牌尺寸，确保界面美观
+            if rows <= 4 and cols <= 4:
+                # 简单模式：4x4，使用较大的卡牌
+                card_width, card_height = 100, 120
+                spacing = 15
+            else:
+                # 困难模式：7x7，使用较小的卡牌
+                card_width, card_height = 60, 80
+                spacing = 8
+            
+            # 计算总宽度和起始位置，确保居中
+            total_width = cols * (card_width + spacing) - spacing
+            total_height = rows * (card_height + spacing) - spacing
+            start_x = (self.width - total_width) // 2
             start_y = 100  # HUD下方
+            
+            # 确保不会超出屏幕
+            max_y = start_y + total_height
+            if max_y > self.height - 120:  # 留出按钮空间
+                # 如果超出，缩小卡牌尺寸
+                scale = (self.height - 120 - start_y) / total_height
+                card_width = int(card_width * scale)
+                card_height = int(card_height * scale)
+                spacing = int(spacing * scale)
+                total_width = cols * (card_width + spacing) - spacing
+                start_x = (self.width - total_width) // 2
+            
             for r in range(rows):
                 for c in range(cols):
                     card_id, is_flipped, is_matched = grid_state[r][c]
                     x = start_x + c * (card_width + spacing)
                     y = start_y + r * (card_height + spacing)
                     self.render_single_card(x, y, card_width, card_height, card_id, is_flipped, is_matched)
+            
+            # 计算按钮位置，确保在卡牌网格下方
+            grid_bottom = start_y + rows * (card_height + spacing) - spacing
+            button_y = grid_bottom + 20
+            # 确保按钮不会超出屏幕
+            if button_y > self.height - 50:
+                button_y = self.height - 50
+        else:
+            button_y = 500
+        
         # 渲染游戏按钮
-        button_y = 500
         delay_button = pygame.Rect(50, button_y, 100, 40)
         block_button = pygame.Rect(160, button_y, 100, 40)
         restart_button = pygame.Rect(270, button_y, 100, 40)
         menu_button = pygame.Rect(380, button_y, 100, 40)
         mouse_pos = pygame.mouse.get_pos()
+        
+        # 获取道具数量（仅困难模式显示）
+        delay_count = 0
+        block_count = 0
+        if hasattr(current_game, 'get_item_counts'):
+            counts = current_game.get_item_counts()
+            delay_count = counts.get('delay', 0)
+            block_count = counts.get('block', 0)
+        
+        # 延时按钮
         if delay_button.collidepoint(mouse_pos):
             bg_color = self.colors['button_hover']
         else:
             bg_color = self.colors['button']
         pygame.draw.rect(self.screen, bg_color, delay_button, border_radius=10)
         pygame.draw.rect(self.screen, (50, 50, 50), delay_button, 2, border_radius=10)
-        delay_text = self.chinese_button_font.render("延时", True, self.colors['text'])
+        delay_text = self.chinese_button_font.render(f"延时({delay_count})", True, self.colors['text'])
         delay_rect = delay_text.get_rect(center=delay_button.center)
         self.screen.blit(delay_text, delay_rect)
+        
+        # 阻挡按钮
         if block_button.collidepoint(mouse_pos):
             bg_color = self.colors['button_hover']
         else:
             bg_color = self.colors['button']
         pygame.draw.rect(self.screen, bg_color, block_button, border_radius=10)
         pygame.draw.rect(self.screen, (50, 50, 50), block_button, 2, border_radius=10)
-        block_text = self.chinese_button_font.render("阻挡", True, self.colors['text'])
+        block_text = self.chinese_button_font.render(f"阻挡({block_count})", True, self.colors['text'])
         block_rect = block_text.get_rect(center=block_button.center)
         self.screen.blit(block_text, block_rect)
         if restart_button.collidepoint(mouse_pos):
@@ -715,7 +830,7 @@ class GameUI:
             text_rect = matched_text.get_rect(center=(x + width // 2, y + height // 2))
             self.screen.blit(matched_text, text_rect)
 
-    def render_victory_interface(self):
+    def render_victory_interface(self, points_earned=0, total_points=0):
         """渲染胜利界面"""
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 128))
@@ -723,8 +838,19 @@ class GameUI:
         victory_text = self.chinese_title_font.render("🎉 恭喜胜利！ 🎉", True, self.colors['victory'])
         victory_rect = victory_text.get_rect(center=(self.width // 2, 200))
         self.screen.blit(victory_text, victory_rect)
-        restart_button = pygame.Rect(300, 300, 150, 40)
-        menu_button = pygame.Rect(500, 300, 150, 40)
+        
+        # 显示积分奖励信息
+        if points_earned > 0:
+            reward_text = self.chinese_font.render(f"获得 {points_earned} 积分！", True, self.colors['text'])
+            reward_rect = reward_text.get_rect(center=(self.width // 2, 250))
+            self.screen.blit(reward_text, reward_rect)
+            
+            total_text = self.chinese_font.render(f"当前总积分: {total_points}", True, self.colors['text'])
+            total_rect = total_text.get_rect(center=(self.width // 2, 280))
+            self.screen.blit(total_text, total_rect)
+        
+        restart_button = pygame.Rect(300, 350, 150, 40)
+        menu_button = pygame.Rect(500, 350, 150, 40)
         mouse_pos = pygame.mouse.get_pos()
         if restart_button.collidepoint(mouse_pos):
             bg_color = self.colors['button_hover']
@@ -874,8 +1000,6 @@ class GameUI:
             
             if self.register_username_input.collidepoint(mouse_pos):
                 self.input_active = 'register_username'
-            elif self.register_email_input.collidepoint(mouse_pos):
-                self.input_active = 'register_email'
             elif self.register_password_input.collidepoint(mouse_pos):
                 self.input_active = 'register_password'
             else:
@@ -895,8 +1019,6 @@ class GameUI:
                     self.login_password = self.login_password[:-1]
                 elif self.input_active == 'register_username':
                     self.register_username = self.register_username[:-1]
-                elif self.input_active == 'register_email':
-                    self.register_email = self.register_email[:-1]
                 elif self.input_active == 'register_password':
                     self.register_password = self.register_password[:-1]
             elif event.key == pygame.K_TAB:
@@ -906,8 +1028,6 @@ class GameUI:
                 elif self.input_active == 'login_password':
                     self.input_active = 'login_username'
                 elif self.input_active == 'register_username':
-                    self.input_active = 'register_email'
-                elif self.input_active == 'register_email':
                     self.input_active = 'register_password'
                 elif self.input_active == 'register_password':
                     self.input_active = 'register_username'
@@ -963,11 +1083,82 @@ class GameUI:
                             max_length = 20
                             if len(self.register_username) < max_length:
                                 self.register_username += char
-                        elif self.input_active == 'register_email':
-                            max_length = 50  # 邮箱可以更长
-                            if len(self.register_email) < max_length:
-                                self.register_email += char
                         elif self.input_active == 'register_password':
                             max_length = 20
                             if len(self.register_password) < max_length:
                                 self.register_password += char
+
+    def handle_text_input(self, text):
+        """处理文本输入"""
+        if self.input_active is None:
+            return
+        
+        # 处理字符输入
+        if text and len(text) > 0:
+            if text.isprintable() or text in ['@', '.', '-', '_']:
+                # 限制输入长度
+                if self.input_active == 'login_username':
+                    max_length = 20
+                    if len(self.login_username) < max_length:
+                        self.login_username += text
+                elif self.input_active == 'login_password':
+                    max_length = 20
+                    if len(self.login_password) < max_length:
+                        self.login_password += text
+                elif self.input_active == 'register_username':
+                    max_length = 20
+                    if len(self.register_username) < max_length:
+                        self.register_username += text
+                elif self.input_active == 'register_password':
+                    max_length = 20
+                    if len(self.register_password) < max_length:
+                        self.register_password += text
+
+    def get_card_position(self, mouse_pos, current_game):
+        """根据鼠标位置获取卡牌位置（必须与渲染逻辑一致）"""
+        if not current_game or not hasattr(current_game, 'get_grid_state'):
+            return None
+        
+        grid_state = current_game.get_grid_state()
+        rows = len(grid_state)
+        cols = len(grid_state[0]) if rows > 0 else 0
+        
+        # 使用与渲染相同的尺寸计算逻辑
+        if rows <= 4 and cols <= 4:
+            # 简单模式：4x4，使用较大的卡牌
+            card_width, card_height = 100, 120
+            spacing = 15
+        else:
+            # 困难模式：7x7，使用较小的卡牌
+            card_width, card_height = 60, 80
+            spacing = 8
+        
+        # 计算总宽度和起始位置，确保居中（与渲染逻辑一致）
+        total_width = cols * (card_width + spacing) - spacing
+        total_height = rows * (card_height + spacing) - spacing
+        start_x = (self.width - total_width) // 2
+        start_y = 100  # HUD下方
+        
+        # 确保不会超出屏幕（与渲染逻辑一致）
+        max_y = start_y + total_height
+        if max_y > self.height - 120:  # 留出按钮空间
+            # 如果超出，缩小卡牌尺寸
+            scale = (self.height - 120 - start_y) / total_height
+            card_width = int(card_width * scale)
+            card_height = int(card_height * scale)
+            spacing = int(spacing * scale)
+            total_width = cols * (card_width + spacing) - spacing
+            start_x = (self.width - total_width) // 2
+        
+        mouse_x, mouse_y = mouse_pos
+        
+        # 检查点击是否在卡牌区域内
+        for r in range(rows):
+            for c in range(cols):
+                card_x = start_x + c * (card_width + spacing)
+                card_y = start_y + r * (card_height + spacing)
+                card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+                if card_rect.collidepoint(mouse_pos):
+                    return (r, c)
+        
+        return None

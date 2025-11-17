@@ -51,7 +51,7 @@ class SimpleGame:
         self._second_selected: Tuple[int, int] = None
         self.score: int = 0
         self.fail_count: int = 0
-        self.shuffle_threshold: int = 5
+        self.shuffle_threshold: int = 8
         self.pending_shuffle: bool = False
 
     def get_card(self, row: int, col: int) -> Card:
@@ -96,25 +96,34 @@ class SimpleGame:
         card1 = self.grid[r1][c1]
         card2 = self.grid[r2][c2]
 
-        if card1.id == card2.id:
+        # 确保ID比较是字符串比较
+        id1 = str(card1.id).strip()
+        id2 = str(card2.id).strip()
+        
+        matched = (id1 == id2)
+        
+        if matched:
             card1.set_matched()
             card2.set_matched()
             # 通过基础分值和权重累加分数
             pair_score = card1.score_weight + card2.score_weight
             self.score += pair_score
             self.fail_count = 0  # 重置失败计数
+            print(f"配对成功！卡片ID: {id1} == {id2}")
         else:
             self.fail_count += 1
+            print(f"配对失败！卡片ID: {id1} != {id2}, 失败次数: {self.fail_count}")
             # 检查是否需要洗牌
             if self.fail_count >= self.shuffle_threshold:
                 self.pending_shuffle = True
+                print(f"触发洗牌！连续失败 {self.fail_count} 次")
 
         # 重置选中记录，准备下一轮
         self._first_selected = None
         self._second_selected = None
 
-        # 如果没有配对成功，调用者应在界面等待后调用 hide_all_flipped() 来隐藏
-        return card1.id == card2.id
+        # 返回是否配对成功
+        return matched
 
     def hide_all_flipped(self) -> None:
         """
@@ -132,23 +141,26 @@ class SimpleGame:
     
     def _shuffle_unmatched(self) -> None:
         """
-        洗牌未匹配的卡片
+        洗牌未匹配的卡片（只改变位置，不改变ID）
         """
         unmatched_cards = []
-        for row in self.grid:
-            for card in row:
+        unmatched_positions = []
+        
+        # 收集所有未匹配的卡片及其位置
+        for r in range(self.rows):
+            for c in range(self.cols):
+                card = self.grid[r][c]
                 if not card.is_matched:
                     card.is_flipped = False  # 盖回卡片
-                    card.is_matched = False
                     unmatched_cards.append(card)
+                    unmatched_positions.append((r, c))
         
-        # 获取所有未匹配卡片的ID
-        card_ids = [card.id for card in unmatched_cards]
-        shuffled_ids = fisher_yates_shuffle(card_ids)
+        # 洗牌卡片列表（只改变顺序，不改变ID）
+        shuffled_cards = fisher_yates_shuffle(unmatched_cards.copy())
         
-        # 重新分配ID到未匹配的卡片
-        for i, card in enumerate(unmatched_cards):
-            card.id = shuffled_ids[i]
+        # 将洗牌后的卡片重新分配到原来的位置
+        for i, (r, c) in enumerate(unmatched_positions):
+            self.grid[r][c] = shuffled_cards[i]
 
     def is_completed(self) -> bool:
         """检查所有卡片是否均已配对完成。"""
